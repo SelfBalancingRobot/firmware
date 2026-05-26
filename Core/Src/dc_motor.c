@@ -45,6 +45,11 @@ void motor_init(motor_t *motor){
     if (motor == NULL || motor->pwm_tim == NULL || motor->encoder_tim == NULL) {
         return;
     }
+    if(motor->sign < 0){
+    	motor->sign = -1;
+    }else{
+    	motor->sign = 1;
+    }
 
     __HAL_TIM_SET_AUTORELOAD(motor->encoder_tim, 0xFFFF);
     __HAL_TIM_SET_COUNTER(motor->encoder_tim, 0);
