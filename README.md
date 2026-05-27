@@ -1,7 +1,7 @@
 # Robot Samobalansujący
 ## Protokół komunikacyjny
 ### Opis
-Protokół na ten moment umożliwia przesyłanie nastaw regulatorów oraz zmiane trybu pracy robota. Wszelkie komendy powinno się wysyłać pojedynczo. Każda kolejna komenda powinna być poprzedzona krótkim co najmniej kilkudziesięcio milisekundowym opóźnieniem względem poprzedniej.
+Protokół na ten moment umożliwia przesyłanie nastaw regulatorów, zmiane trybu pracy robota oraz różne działania związane z IMU. Wszelkie komendy powinno się wysyłać pojedynczo. Każda kolejna komenda powinna być poprzedzona krótkim co najmniej kilkudziesięcio milisekundowym opóźnieniem względem poprzedniej.
 ### Ogólna struktura wiadomości
 Każda wiadomość powinna składać się z:
 - identyfikatora komendy
@@ -66,6 +66,12 @@ Na ten moment nie uwzględniono możliwości zapisywania różnych nastaw do sil
 |---|---|
 | `b` | tryb balansu, normalna praca robota |
 | `c` | tryb kalibracji silników, możliwość zadawania na sztywno prędkości obrotowej silnikom |
+### działania związane z IMU
+Na ten moment jedyna dostępna komenda to ustawienie flagi powodującej wysłanie aktualnych offsetów IMU. Możliwe, że w przyszłości możliwe będzie ręczne dodanie jakiegoś offsetu.
+#### Format komendy 
+```text
+    imuo\n
+```
 ### Rodzaj transmisji
 #### Opis
 Komunikacja odbywa się poprzez moduł Bluetooth HC-06.
