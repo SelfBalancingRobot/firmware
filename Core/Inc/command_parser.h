@@ -11,19 +11,22 @@
 #include "dc_motor.h"
 #include "balance_regulator.h"
 #include "MPU6050.h"
+#include "angle_regulator.h"
+#include "velocity_regulator.h"
 
 typedef enum{
 	BALANCE,
-	MOTOR_CALIBRATION
+	CALIBRATION
 }robot_mode_t;
 
 typedef struct{
 	robot_mode_t *mode;
 	bool *send_imu_offsets_flag;
-	float *rpm;
+	float *angle;
+	velocity_regulator_t *vel_pid;
+	angle_pid_t *ang_pid;
 	motor_t *motor1;
 	motor_t *motor2;
-	balance_pid_t *balance_pid;
 	mpu_kalman_t *kalman;
 }command_context_t;
 

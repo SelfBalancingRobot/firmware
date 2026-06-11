@@ -10,7 +10,7 @@
 
 
 
-static void pid_command_process(balance_pid_t *balance_pid, motor_t *motor1, motor_t *motor2, char *msg){
+static void pid_command_process(angle_pid_t *angle_pid, velocity_regulator_t *velocity_pid, char *msg){
 	if (strlen(msg) < 6){
 		return;
 	}
@@ -20,30 +20,31 @@ static void pid_command_process(balance_pid_t *balance_pid, motor_t *motor1, mot
 
 	float value = strtof(&msg[5], NULL);
 
-	if(regulator == 'b'){
+	if(regulator == 'a'){
 		switch(term){
 		case 'p':
-			balance_pid->Kp = value;
+			angle_pid->Kp = value;
 			break;
 		case 'i':
-			balance_pid->Ki = value;
+			angle_pid->Ki = value;
 			break;
 		case 'd':
-			balance_pid->Kd = value;
+			angle_pid->Kd = value;
 			break;
 		default:
 			break;
 		}
 	}
-	else if(regulator == 'm'){
+	else if(regulator == 'v'){
 		switch(term){
 		case 'p':
-			motor1->regulator_Kp = value;
-			motor2->regulator_Kp = value;
+			velocity_pid->Kp = value;
 			break;
 		case 'i':
-			motor1->regulator_Ki = value;
-			motor2->regulator_Ki = value;
+			velocity_pid->Ki = value;
+			break;
+		case 'd':
+			velocity_pid->Kd = value;
 			break;
 		default:
 			break;
@@ -58,7 +59,7 @@ static void mode_command_process(robot_mode_t *mode_p, char *msg){
 	if(msg[4] == 'b'){
 		*mode_p = BALANCE;
 	}else if(msg[4] == 'c'){
-		*mode_p = MOTOR_CALIBRATION;
+		*mode_p = CALIBRATION;
 	}
 }
 
@@ -71,13 +72,6 @@ static void imu_command_process(bool *offsets_flag, char *msg){
 	}
 }
 
-static void rpm_command_process(float *rpm, char *msg){
-	if(strlen(msg) < 4){
-		return;
-	}
-	*rpm = strtof(&msg[3], NULL);
-}
-
 static void step_command_process(float *step, char *msg){
 	if(strlen(msg) < 5){
 		return;
@@ -85,19 +79,13 @@ static void step_command_process(float *step, char *msg){
 	*step = strtof(&msg[4], NULL);
 }
 
-static void angle_command_process(float *angle, char *msg){
+static void angle_command_process(float *angle_ref, char *msg){
 	if(strlen(msg) < 4){
 		return;
 	}
-	*angle = strtof(&msg[3], NULL);
+	*angle_ref = strtof(&msg[3], NULL);
 }
 
-static void death_band_command_process(float *death_band, char *msg){
-	if(strlen(msg) < 3){
-		return;
-	}
-	*death_band = strtof(&msg[2], NULL);
-}
 
 static void kalman_command_process(mpu_kalman_t *kalman, char *msg){
 	if(strlen(msg) < 6){
@@ -117,22 +105,18 @@ static void kalman_command_process(mpu_kalman_t *kalman, char *msg){
 
 void parse_command(command_context_t *command_context, char *msg){
 	if(strncmp(msg, "pid", 3) == 0){
-		pid_command_process(command_context->balance_pid, command_context->motor1, command_context->motor2, msg);
+		pid_command_process(command_context->ang_pid, command_context->vel_pid, msg);
 	}else if(strncmp(msg, "mode", 4) == 0){
 		mode_command_process(command_context->mode, msg);
 	}else if(strncmp(msg, "imu", 3) == 0){
 		imu_command_process(command_context->send_imu_offsets_flag, msg);
-	}else if(strncmp(msg, "rpm", 3) == 0){
-		rpm_command_process(command_context->rpm, msg);
 	}else if(strncmp(msg, "step", 4) == 0){
 		step_command_process(&command_context->motor1->ramp_step, msg);
 		step_command_process(&command_context->motor2->ramp_step, msg);
-	}else if(strncmp(msg, "ang", 3) == 0){
-		angle_command_process(&command_context->balance_pid->target_angle, msg);
-	}else if(strncmp(msg, "db", 2) == 0){
-		death_band_command_process(&command_context->balance_pid->rpm_death_band, msg);
 	}else if(strncmp(msg, "kal", 3) == 0){
 		kalman_command_process(command_context->kalman, msg);
+	}else if(strncmp(msg, "ang", 3) == 0){
+		angle_command_process(command_context->angle, msg);
 	}
 }
 
