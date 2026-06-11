@@ -2,10 +2,10 @@
 CAD.formats=
 CAD.pinconfig=
 CAD.provider=
-FREERTOS.BinarySemaphores01=UartInitSemaphore,Dynamic,NULL,Available
+FREERTOS.BinarySemaphores01=HardwareInitSemaphore,Dynamic,NULL,Available;UartInitSemaphore,Dynamic,NULL,Available
 FREERTOS.FootprintOK=true
 FREERTOS.IPParameters=Tasks01,FootprintOK,BinarySemaphores01
-FREERTOS.Tasks01=ControlTask,48,128,StartControlTask,Default,NULL,Dynamic,NULL,NULL;BluetoothTask,16,1024,StartBluetoothTask,Default,NULL,Dynamic,NULL,NULL;LedMatrixTask,8,128,StartLedMatrixTask,Default,NULL,Dynamic,NULL,NULL
+FREERTOS.Tasks01=ControlTask,48,128,StartControlTask,Default,NULL,Dynamic,NULL,NULL;SendLogsTask,10,1024,StartSendLogsTask,Default,NULL,Dynamic,NULL,NULL;LedMatrixTask,8,128,StartLedMatrixTask,Default,NULL,Dynamic,NULL,NULL;ReceiveCmdTask,12,256,StartReceiveCmdTask,Default,NULL,Dynamic,NULL,NULL
 File.Version=6
 I2C1.I2C_Mode=I2C_Fast
 I2C1.IPParameters=I2C_Mode
