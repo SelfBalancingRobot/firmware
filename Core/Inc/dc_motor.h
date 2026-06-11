@@ -21,7 +21,10 @@ typedef struct{
     uint32_t encoder_resolution;
 
     float measured_rpm;
+    float target_rpm;
     float max_rpm;
+    float ramped_rpm;
+    float ramp_step;
 
     float regulator_Kp;
     float regulator_Ki;

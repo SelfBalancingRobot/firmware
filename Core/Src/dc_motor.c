@@ -35,6 +35,16 @@ static int32_t encoder_get_delta_cnt(motor_t *motor){
     return delta;
 }
 
+static void motor_update_ramp(motor_t *motor){
+	if(motor->target_rpm > motor->ramped_rpm + motor->ramp_step){
+		motor->ramped_rpm += motor->ramp_step;
+	}else if(motor->target_rpm < motor->ramped_rpm - motor->ramp_step){
+		motor->ramped_rpm -= motor->ramp_step;
+	}else{
+		motor->ramped_rpm = motor->target_rpm;
+	}
+}
+
 void motor_measure_rpm(motor_t *motor, float Ts){
     int32_t delta = encoder_get_delta_cnt(motor);
     float revolutions = (float)delta / motor->encoder_resolution;
@@ -62,13 +72,16 @@ void motor_init(motor_t *motor){
 }
 
 void motor_set_rpm(motor_t *motor, float rpm, float Ts){
+
     if(rpm > motor->max_rpm){
         rpm = motor->max_rpm;
     }else if(rpm < -motor->max_rpm){
         rpm = -motor->max_rpm;
     }
+    motor->target_rpm = rpm;
+    motor_update_ramp(motor);
     motor_measure_rpm(motor, Ts);
-    float error = rpm - motor->measured_rpm;
+    float error = motor->ramped_rpm - motor->measured_rpm;
     motor->integral += error * Ts;
     float u = (motor->regulator_Kp * error) + (motor->regulator_Ki * motor->integral);
     if(u > 100.0f){
