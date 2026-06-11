@@ -105,3 +105,16 @@ void motor_set_rpm(motor_t *motor, float rpm, float Ts){
 void motor_set_raw_pwm(motor_t *motor, uint32_t duty, uint32_t channel){
     pwm_set_duty(motor, duty, channel);
 }
+
+void motor_set_signed_pwm(motor_t *motor, float pwm){
+    if(pwm > 0){
+        uint32_t duty = (uint32_t)(pwm + 0.5f);
+        motor_set_raw_pwm(motor, 0, motor->pwm_channel_B);
+        motor_set_raw_pwm(motor, duty, motor->pwm_channel_A);
+
+    }else{
+        uint32_t duty = (uint32_t)(-pwm + 0.5f);
+        motor_set_raw_pwm(motor, 0, motor->pwm_channel_A);
+        motor_set_raw_pwm(motor, duty, motor->pwm_channel_B);
+    }
+}
