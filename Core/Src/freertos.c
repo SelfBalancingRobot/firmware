@@ -31,6 +31,8 @@
 #include "LED_matrix.h"
 #include "balance_regulator.h"
 #include "command_parser.h"
+#include "velocity_regulator.h"
+#include "angle_regulator.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -119,18 +121,38 @@ mpu_kalman_t mpu_kalman = {
 	.initialized = false
 };
 
+angle_pid_t angle_pid = {
+	.Kp = 1.0f,
+	.Ki = 0.0f,
+	.Kd = 0.5f,
+	.integral = 0.0f,
+	.prev_error = 0.0f
+
+};
+
+velocity_regulator_t velocity_pid = {
+	.Kp = 3.0f,
+	.Ki = 0.5f,
+	.Kd = 0.0f,
+	.integral = 0.0f,
+	.prev_error = 0.0f
+
+};
+
 robot_mode_t robot_mode = BALANCE;
 float callibration_rpm = 0;
 bool send_imu_offsets_flag = false;
-
+float pwm = 0.0f;
+float angle_ref = 0.0f;
 command_context_t command_context = {
-	.balance_pid = &balance_pid,
 	.motor1 = &motor1,
 	.motor2 = &motor2,
+	.ang_pid = &angle_pid,
+	.vel_pid = &velocity_pid,
 	.mode = &robot_mode,
-	.rpm = &callibration_rpm,
 	.kalman = &mpu_kalman,
-	.send_imu_offsets_flag = &send_imu_offsets_flag
+	.send_imu_offsets_flag = &send_imu_offsets_flag,
+	.angle = &angle_ref
 };
 
 float current_angle = 0.0f;
@@ -280,21 +302,30 @@ void StartControlTask(void *argument)
 	mpu_get_accel(&ax, &ay, &az);
 	mpu_get_gyro(&gx, &gy, &gz);
 	current_angle = mpu_count_angle_Kalman(&mpu_kalman, ay, az, gx, Ts_s);
+	motor_measure_rpm(&motor1, Ts_s);
+	motor_measure_rpm(&motor2, Ts_s);
+	float rpm_avg = 0.5f * (motor1.measured_rpm + motor2.measured_rpm);
+	float wheel_omega = rpm_avg * 2.0f * 3.14f / 60.0f;
+	float robot_speed = wheel_omega * 0.1f;
 	if(robot_mode == BALANCE){
 	    if(current_angle > 45.0f || current_angle < -45.0f) {
-	        motor_set_rpm(&motor1, 0, Ts_s);
-	        motor_set_rpm(&motor2, 0, Ts_s);
-	        balance_pid.integral = 0; // zeruj całkę
-	        motor1.integral = 0;
-	        motor2.integral = 0;
+	    	motor_set_signed_pwm(&motor1, 0.0f);
+	    	motor_set_signed_pwm(&motor2, 0.0f);
+	        angle_pid.integral = 0.0f;
+	        velocity_pid.integral = 0.0f;
+	        angle_pid.prev_error = 0.0f;
+	        velocity_pid.prev_error = 0.0f;
 	    }else{
-	    	float target_rpm = balance_count_target_rpm(&balance_pid, current_angle, Ts_s);
-	    	motor_set_rpm(&motor2, target_rpm, Ts_s);
-	    	motor_set_rpm(&motor1, target_rpm, Ts_s);
+	    	float v_ref = 0.0f;
+	    	angle_ref = velocity_pid_count_angle(&velocity_pid, v_ref, robot_speed, Ts_s);
+	    	pwm = angle_pid_count_pwm(&angle_pid, gx,angle_ref, current_angle, Ts_s);
+	    	motor_set_signed_pwm(&motor1, pwm);
+	    	motor_set_signed_pwm(&motor2, pwm);
 	    }
-	}else if(robot_mode == MOTOR_CALIBRATION){
-		motor_set_rpm(&motor1, callibration_rpm, Ts_s);
-		motor_set_rpm(&motor2, callibration_rpm, Ts_s);
+	}else if(robot_mode == CALIBRATION){
+    	pwm = angle_pid_count_pwm(&angle_pid, gx, 0, current_angle, Ts_s);
+    	motor_set_signed_pwm(&motor1, pwm);
+    	motor_set_signed_pwm(&motor2, pwm);
 	}
 
     osDelayUntil(nextWake);
@@ -317,15 +348,11 @@ void StartSendLogsTask(void *argument)
   osSemaphoreAcquire(UartInitSemaphoreHandle, osWaitForever);
   for(;;)
   {
-	my_uart_printf(&bluetooth, "Motor1 rpm = %.2f\n", motor1.measured_rpm);
-	my_uart_printf(&bluetooth, "Motor2 rpm = %.2f\n", motor2.measured_rpm);
+	my_uart_printf(&bluetooth, "Motor pwm = %.2f\n", pwm);
+	my_uart_printf(&bluetooth, "angle ref = %.2f\n", angle_ref);
 	my_uart_printf(&bluetooth, "Current angle = %.2f\n", current_angle);
-	my_uart_printf(&bluetooth, "Motor1:\tKp = %.2f\tKi = %.2f\n", motor1.regulator_Kp, motor1.regulator_Ki);
-	my_uart_printf(&bluetooth, "Motor2:\tKp = %.2f\tKi = %.2f\n", motor2.regulator_Kp, motor2.regulator_Ki);
-	my_uart_printf(&bluetooth, "Motor1: step = %.2f\n", motor1.ramp_step);
-	my_uart_printf(&bluetooth, "Motor2: step = %.2f\n", motor2.ramp_step);
-	my_uart_printf(&bluetooth, "Balancer:\tKp = %.2f\tKi=%.2f\tKd=%.2f\n", balance_pid.Kp, balance_pid.Ki, balance_pid.Kd);
-    my_uart_printf(&bluetooth, "RPM death band = %.2f\n", balance_pid.rpm_death_band);
+	my_uart_printf(&bluetooth, "Angle PID:\tKp = %.2f\tKi = %.2f\tKd = %.2f\n", angle_pid.Kp, angle_pid.Ki, angle_pid.Kd);
+	my_uart_printf(&bluetooth, "Velocity PID:\tKp = %.2f\tKi = %.2f\tKd = %.2f\n", velocity_pid.Kp, velocity_pid.Ki, velocity_pid.Kd);
     my_uart_printf(&bluetooth, "Kalman:\tR_m = %.4f\tQ_a = %.4f\tQ_b = %.4f\n", mpu_kalman.R_measure, mpu_kalman.Q_angle, mpu_kalman.Q_bias);
 	if(send_imu_offsets_flag == true){
     	float ax, ay, az, gx, gy, gz;
@@ -430,6 +457,5 @@ void StartReceiveCmdTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
 /* USER CODE END Application */
 
