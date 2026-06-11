@@ -77,6 +77,31 @@ void LED_matrix_load_buffer(LED_matrix_t *matrix, uint8_t *buffer){
 	}
 }
 
+void LED_matrix_rotate_buffer(LED_matrix_t *matrix, rotation_t direction){
+	uint8_t rotated[8] = {0};
+
+	if(direction == ROTATE_CW){
+		for(uint8_t i = 0; i < 8; i++){
+			for(uint8_t j = 0; j < 8; j++){
+				if(matrix->buffer[7 - j] & (1 << i)){
+					rotated[i] |= (1 << j);
+				}
+			}
+
+		}
+	}else{
+		for(uint8_t i = 0; i < 8; i++){
+			for(uint8_t j = 0; j < 8; j++){
+				if(matrix->buffer[j] & (1 << i)){
+					rotated[i] |= (1 << (7 - j));
+				}
+			}
+		}
+	}
+	LED_matrix_load_buffer(matrix, rotated);
+}
+
+
 void LED_matrix_draw_buffer(LED_matrix_t *matrix){
     for(uint8_t row = 0; row < 8; row++){
     	max7219_write(matrix, MAX7219_DIGIT0_REG + row, matrix->buffer[row]);
