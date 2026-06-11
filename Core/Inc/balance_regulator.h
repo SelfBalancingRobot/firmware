@@ -16,6 +16,7 @@ typedef struct {
 	float Kd;
 	float integral;
 	float prev_error;
+	float rpm_death_band;
 }balance_pid_t;
 
 float balance_count_target_rpm(balance_pid_t *pid, float current_angle, float Ts);
