@@ -182,7 +182,7 @@ void mpu_get_accel_offset(float *ax_ptr, float *ay_ptr, float *az_ptr){
     *az_ptr = accel_z_offset;
 }
 
-float mpu_count_angle(float ax, float az, float gy, float dt_s){
+float mpu_count_angle_complementary(float ax, float az, float gy, float dt_s){
 
     float accel_angle_deg = atan2(ax, az) * (180.0f / 3.141592f);
 
@@ -191,3 +191,77 @@ float mpu_count_angle(float ax, float az, float gy, float dt_s){
     return filtered_angle_deg;
 }
 
+static float mpu_Kalman_algorithm(mpu_kalman_t *kalman, float new_angle, float new_rate, float dt_s){
+
+	//new rate - prędkość kątowa z żyroskopu
+	//bias - estymowany dryf żyroskopu
+	float rate = new_rate - kalman->bias;
+	kalman->angle += dt_s * rate;
+
+	//aktualizajca macierzy kowariancji P
+	kalman->P[0][0] += dt_s * (dt_s * kalman->P[1][1] - kalman->P[0][1] - kalman->P[1][0] + kalman->Q_angle);
+	kalman->P[0][1] -= dt_s * kalman->P[1][1];
+	kalman->P[1][0] -= dt_s * kalman->P[1][1];
+	kalman->P[1][1] += kalman->Q_bias * dt_s;
+
+	//etap korekcji, new_angle = kąt z akcelerometru
+
+	float S = kalman->P[0][0] + kalman->R_measure;
+	if(S == 0.0f){
+		return kalman->angle;
+	}
+	float K0 = kalman->P[0][0] / S;
+	float K1 = kalman->P[1][0] / S;
+
+	float y = new_angle - kalman->angle;
+
+	kalman->angle += K0 * y;
+	kalman->bias += K1 * y;
+
+	float P00_temp = kalman->P[0][0];
+	float P01_temp = kalman->P[0][1];
+
+	kalman->P[0][0] -= K0 * P00_temp;
+	kalman->P[0][1] -= K0 * P01_temp;
+	kalman->P[1][0] -= K1 * P00_temp;
+	kalman->P[1][1] -= K1 * P01_temp;
+
+	return kalman->angle;
+}
+
+float mpu_count_angle_Kalman(mpu_kalman_t *kalman, float ax, float az, float gy, float dt_s){
+	float accel_angle_deg = atan2f(ax, az) * (180.0f / 3.14159265359f);
+
+	if(kalman->initialized == false){
+		kalman->angle = accel_angle_deg;
+		kalman->bias = 0.0f;
+
+		kalman->P[0][0] = 0.0f;
+		kalman->P[0][1] = 0.0f;
+		kalman->P[1][0] = 0.0f;
+		kalman->P[1][1] = 0.0f;
+
+		filtered_angle_deg = accel_angle_deg;
+		kalman->initialized = true;
+
+		return filtered_angle_deg;
+	}
+
+	filtered_angle_deg = mpu_Kalman_algorithm(kalman, accel_angle_deg, gy, dt_s);
+
+	return filtered_angle_deg;
+}
+
+void mpu_reset_Kalman(mpu_kalman_t *kalman, float ax, float az){
+	float accel_angle_deg = atan2f(ax, az) * (180.0f / 3.14159265359f);
+	kalman->angle = accel_angle_deg;
+	kalman->bias = 0.0f;
+
+	kalman->P[0][0] = 0.0f;
+	kalman->P[0][1] = 0.0f;
+	kalman->P[1][0] = 0.0f;
+	kalman->P[1][1] = 0.0f;
+
+	filtered_angle_deg = accel_angle_deg;
+	kalman->initialized = true;
+}

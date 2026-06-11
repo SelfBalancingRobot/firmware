@@ -10,6 +10,20 @@
 #include "stdbool.h"
 #include "i2c.h"
 
+typedef struct {
+	float Q_angle;
+	float Q_bias;
+	float R_measure;
+
+	float angle;
+	float bias;
+
+	float P[2][2];
+
+	bool initialized;
+}mpu_kalman_t;
+
+
 bool mpu_who_am_i(void);
 void mpu_init(I2C_HandleTypeDef *hi2c);
 
@@ -22,7 +36,10 @@ void mpu_get_gyro_offset(float *gx_ptr, float *gy_ptr, float *gz_ptr);
 void mpu_count_accel_offset();
 void mpu_get_accel_offset(float *ax_ptr, float *ay_ptr, float *az_ptr);
 
-float mpu_count_angle(float ax, float az, float gy, float dt_s);
+float mpu_count_angle_complementary(float ax, float az, float gy, float dt_s);
+
+float mpu_count_angle_Kalman(mpu_kalman_t *kalman, float ax, float az, float gy, float dt_s);
+void mpu_reset_Kalman(mpu_kalman_t *kalman, float ax, float az);
 
 
 #endif /* INC_MPU6050_H_ */
