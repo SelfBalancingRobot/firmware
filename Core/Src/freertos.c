@@ -145,6 +145,7 @@ bool send_imu_offsets_flag = false;
 bool send_pid_flag = true;
 float pwm = 0.0f;
 float angle_ref = 0.0f;
+float calib_ang = 0.0f;
 float robot_speed = 0.0f;
 command_context_t command_context = {
 	.motor1 = &motor1,
@@ -155,7 +156,7 @@ command_context_t command_context = {
 	.kalman = &mpu_kalman,
 	.send_imu_offsets_flag = &send_imu_offsets_flag,
 	.send_pid_flag = &send_pid_flag,
-	.angle = &angle_ref
+	.angle = &calib_ang
 };
 
 float current_angle = 0.0f;
@@ -327,7 +328,7 @@ void StartControlTask(void *argument)
 	    	motor_set_signed_pwm(&motor2, pwm);
 	    }
 	}else if(robot_mode == CALIBRATION){
-    	pwm = angle_pid_count_pwm(&angle_pid, gx, 0, current_angle, Ts_s);
+    	pwm = angle_pid_count_pwm(&angle_pid, gx, calib_ang, current_angle, Ts_s);
     	motor_set_signed_pwm(&motor1, pwm);
     	motor_set_signed_pwm(&motor2, pwm);
 	}
@@ -353,9 +354,14 @@ void StartSendLogsTask(void *argument)
   for(;;)
   {
 	my_uart_printf(&bluetooth, "pwm%.2f\n", pwm);
-	my_uart_printf(&bluetooth, "angref%.2f\n", angle_ref);
-	my_uart_printf(&bluetooth, "angcur%.2f\n", current_angle);
 	my_uart_printf(&bluetooth, "velcur%.2f\n", robot_speed);
+	my_uart_printf(&bluetooth, "angcur%.2f\n", current_angle);
+	if(robot_mode == BALANCE){
+		my_uart_printf(&bluetooth, "angref%.2f\n", angle_ref);
+	}
+	else if(robot_mode == CALIBRATION){
+		my_uart_printf(&bluetooth, "angref%.2f\n", calib_ang);
+	}
 
 	if(send_pid_flag == true){
 		my_uart_printf(&bluetooth, "angpidp%.2f\n", angle_pid.Kp);

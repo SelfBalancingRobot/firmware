@@ -82,11 +82,11 @@ static void step_command_process(float *step, char *msg){
 	*step = strtof(&msg[4], NULL);
 }
 
-static void angle_command_process(float *angle_ref, char *msg){
+static void angle_command_process(float *calib_ang, char *msg){
 	if(strlen(msg) < 4){
 		return;
 	}
-	*angle_ref = strtof(&msg[3], NULL);
+	*calib_ang = strtof(&msg[3], NULL);
 }
 
 
