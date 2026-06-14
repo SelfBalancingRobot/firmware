@@ -22,6 +22,7 @@ typedef enum{
 typedef struct{
 	robot_mode_t *mode;
 	bool *send_imu_offsets_flag;
+	bool *send_pid_flag;
 	float *angle;
 	velocity_regulator_t *vel_pid;
 	angle_pid_t *ang_pid;

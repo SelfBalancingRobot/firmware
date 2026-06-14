@@ -142,8 +142,10 @@ velocity_regulator_t velocity_pid = {
 robot_mode_t robot_mode = BALANCE;
 float callibration_rpm = 0;
 bool send_imu_offsets_flag = false;
+bool send_pid_flag = true;
 float pwm = 0.0f;
 float angle_ref = 0.0f;
+float robot_speed = 0.0f;
 command_context_t command_context = {
 	.motor1 = &motor1,
 	.motor2 = &motor2,
@@ -152,6 +154,7 @@ command_context_t command_context = {
 	.mode = &robot_mode,
 	.kalman = &mpu_kalman,
 	.send_imu_offsets_flag = &send_imu_offsets_flag,
+	.send_pid_flag = &send_pid_flag,
 	.angle = &angle_ref
 };
 
@@ -293,6 +296,7 @@ void StartControlTask(void *argument)
 
   mpu_count_accel_offset();
   mpu_count_gyro_offset();
+  send_imu_offsets_flag = true;
   osSemaphoreRelease(HardwareInitSemaphoreHandle);
 
   /* Infinite loop */
@@ -306,7 +310,7 @@ void StartControlTask(void *argument)
 	motor_measure_rpm(&motor2, Ts_s);
 	float rpm_avg = 0.5f * (motor1.measured_rpm + motor2.measured_rpm);
 	float wheel_omega = rpm_avg * 2.0f * 3.14f / 60.0f;
-	float robot_speed = wheel_omega * 0.1f;
+	robot_speed = wheel_omega * 0.1f;
 	if(robot_mode == BALANCE){
 	    if(current_angle > 45.0f || current_angle < -45.0f) {
 	    	motor_set_signed_pwm(&motor1, 0.0f);
@@ -348,21 +352,36 @@ void StartSendLogsTask(void *argument)
   osSemaphoreAcquire(UartInitSemaphoreHandle, osWaitForever);
   for(;;)
   {
-	my_uart_printf(&bluetooth, "Motor pwm = %.2f\n", pwm);
-	my_uart_printf(&bluetooth, "angle ref = %.2f\n", angle_ref);
-	my_uart_printf(&bluetooth, "Current angle = %.2f\n", current_angle);
-	my_uart_printf(&bluetooth, "Angle PID:\tKp = %.2f\tKi = %.2f\tKd = %.2f\n", angle_pid.Kp, angle_pid.Ki, angle_pid.Kd);
-	my_uart_printf(&bluetooth, "Velocity PID:\tKp = %.2f\tKi = %.2f\tKd = %.2f\n", velocity_pid.Kp, velocity_pid.Ki, velocity_pid.Kd);
-    my_uart_printf(&bluetooth, "Kalman:\tR_m = %.4f\tQ_a = %.4f\tQ_b = %.4f\n", mpu_kalman.R_measure, mpu_kalman.Q_angle, mpu_kalman.Q_bias);
+	my_uart_printf(&bluetooth, "pwm%.2f\n", pwm);
+	my_uart_printf(&bluetooth, "angref%.2f\n", angle_ref);
+	my_uart_printf(&bluetooth, "angcur%.2f\n", current_angle);
+	my_uart_printf(&bluetooth, "velcur%.2f\n", robot_speed);
+
+	if(send_pid_flag == true){
+		my_uart_printf(&bluetooth, "angpidp%.2f\n", angle_pid.Kp);
+		my_uart_printf(&bluetooth, "angpidi%.2f\n", angle_pid.Ki);
+		my_uart_printf(&bluetooth, "angpidd%.2f\n", angle_pid.Kd);
+		my_uart_printf(&bluetooth, "velpidp%.2f\n", velocity_pid.Kp);
+		my_uart_printf(&bluetooth, "velpidi%.2f\n", velocity_pid.Ki);
+		my_uart_printf(&bluetooth, "velpidd%.2f\n", velocity_pid.Kd);
+		my_uart_printf(&bluetooth, "kalrm%.5f\n", mpu_kalman.R_measure);
+		my_uart_printf(&bluetooth, "kalqa%.5f\n", mpu_kalman.Q_angle);
+		my_uart_printf(&bluetooth, "kalqb%.5f\n", mpu_kalman.Q_bias);
+		send_pid_flag = false;
+	}
 	if(send_imu_offsets_flag == true){
     	float ax, ay, az, gx, gy, gz;
     	mpu_get_accel_offset(&ax, &ay, &az);
     	mpu_get_gyro_offset(&gx, &gy, &gz);
-    	my_uart_printf(&bluetooth, "Accelerometer offsets: x=%.2f\ty=%.2f\tz=%.2f\n", ax, ay, az);
-    	my_uart_printf(&bluetooth, "Gyroscope offsets: x=%.2f\ty=%.2f\tz=%.2f\n", gx, gy, gz);
+    	my_uart_printf(&bluetooth, "accoffx%.2f\n", ax);
+    	my_uart_printf(&bluetooth, "accoffy%.2f\n", ay);
+    	my_uart_printf(&bluetooth, "accoffz%.2f\n", az);
+    	my_uart_printf(&bluetooth, "gyroffx%.2f\n", gx);
+    	my_uart_printf(&bluetooth, "gyroffy%.2f\n", gy);
+    	my_uart_printf(&bluetooth, "gyroffz%.2f\n", gz);
     	send_imu_offsets_flag = false;
     }
-	osDelay(500);
+	osDelay(100);
   }
   /* USER CODE END StartSendLogsTask */
 }

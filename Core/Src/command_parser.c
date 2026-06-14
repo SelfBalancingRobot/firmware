@@ -10,17 +10,17 @@
 
 
 
-static void pid_command_process(angle_pid_t *angle_pid, velocity_regulator_t *velocity_pid, char *msg){
+static void pid_command_process(angle_pid_t *angle_pid, velocity_regulator_t *velocity_pid, bool *flag, char *msg){
 	if (strlen(msg) < 6){
 		return;
 	}
 
-	char regulator = msg[3];
+	char subcommand = msg[3];
 	char term = msg[4];
 
 	float value = strtof(&msg[5], NULL);
 
-	if(regulator == 'a'){
+	if(subcommand == 'a'){
 		switch(term){
 		case 'p':
 			angle_pid->Kp = value;
@@ -35,7 +35,7 @@ static void pid_command_process(angle_pid_t *angle_pid, velocity_regulator_t *ve
 			break;
 		}
 	}
-	else if(regulator == 'v'){
+	else if(subcommand == 'v'){
 		switch(term){
 		case 'p':
 			velocity_pid->Kp = value;
@@ -49,6 +49,9 @@ static void pid_command_process(angle_pid_t *angle_pid, velocity_regulator_t *ve
 		default:
 			break;
 		}
+	}
+	else if(subcommand == 'f'){
+		*flag = true;
 	}
 }
 
@@ -105,7 +108,7 @@ static void kalman_command_process(mpu_kalman_t *kalman, char *msg){
 
 void parse_command(command_context_t *command_context, char *msg){
 	if(strncmp(msg, "pid", 3) == 0){
-		pid_command_process(command_context->ang_pid, command_context->vel_pid, msg);
+		pid_command_process(command_context->ang_pid, command_context->vel_pid, command_context->send_pid_flag, msg);
 	}else if(strncmp(msg, "mode", 4) == 0){
 		mode_command_process(command_context->mode, msg);
 	}else if(strncmp(msg, "imu", 3) == 0){
