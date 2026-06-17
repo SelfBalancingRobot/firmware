@@ -11,6 +11,7 @@
 
 
 static void pid_command_process(angle_pid_t *angle_pid, velocity_regulator_t *velocity_pid, bool *flag, char *msg){
+	*flag = true; //flaga jest ustawiana zawsze jesli ustawiane sa nowe nastawy. Jesli chcemy ustawic flage bez zmiany nastaw to mozna wyslac komedne "pid"
 	if (strlen(msg) < 6){
 		return;
 	}
@@ -49,9 +50,6 @@ static void pid_command_process(angle_pid_t *angle_pid, velocity_regulator_t *ve
 		default:
 			break;
 		}
-	}
-	else if(subcommand == 'f'){
-		*flag = true;
 	}
 }
 
