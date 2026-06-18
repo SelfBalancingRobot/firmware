@@ -103,6 +103,13 @@ static void kalman_command_process(mpu_kalman_t *kalman, char *msg){
 	}
 }
 
+static void outer_divider_command_process(uint8_t *outer_div_ref, char *msg){
+	if(strlen(msg) < 5){
+		return;
+	}
+	*outer_div_ref = strtol(&msg[4], NULL, 10);
+}
+
 
 void parse_command(command_context_t *command_context, char *msg){
 	if(strncmp(msg, "pid", 3) == 0){
@@ -118,6 +125,8 @@ void parse_command(command_context_t *command_context, char *msg){
 		kalman_command_process(command_context->kalman, msg);
 	}else if(strncmp(msg, "ang", 3) == 0){
 		angle_command_process(command_context->angle, msg);
+	}else if(strncmp(msg, "freq", 4) == 0){
+		outer_divider_command_process(command_context->out_div_ref, msg);
 	}
 }
 

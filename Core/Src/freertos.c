@@ -147,12 +147,14 @@ float pwm = 0.0f;
 float angle_ref = 0.0f;
 float calib_ang = 0.0f;
 float robot_speed = 0.0f;
+uint8_t outer_divider_ref = 10;
 command_context_t command_context = {
 	.motor1 = &motor1,
 	.motor2 = &motor2,
 	.ang_pid = &angle_pid,
 	.vel_pid = &velocity_pid,
 	.mode = &robot_mode,
+	.out_div_ref = &outer_divider_ref,
 	.kalman = &mpu_kalman,
 	.send_imu_offsets_flag = &send_imu_offsets_flag,
 	.send_pid_flag = &send_pid_flag,
@@ -281,6 +283,8 @@ void StartControlTask(void *argument)
   /* USER CODE BEGIN StartControlTask */
   osSemaphoreAcquire(HardwareInitSemaphoreHandle, 0);
   uint32_t Ts_ms = 4;
+  uint8_t outer_divider = 10;
+
   uint32_t nextWake = osKernelGetTickCount();
   float Ts_s = (float)Ts_ms / 1000.0f;
   float ax = 0.0f;
@@ -322,8 +326,14 @@ void StartControlTask(void *argument)
 	        velocity_pid.prev_error = 0.0f;
 	    }else{
 	    	float v_ref = 0.0f;
-	    	angle_ref = velocity_pid_count_angle(&velocity_pid, v_ref, robot_speed, Ts_s);
-	    	pwm = angle_pid_count_pwm(&angle_pid, gx,angle_ref, current_angle, Ts_s);
+	    	if (outer_divider > outer_divider_ref){
+	    		angle_ref = calib_ang + velocity_pid_count_angle(&velocity_pid, v_ref, robot_speed, Ts_s * (outer_divider_ref + 1));
+	    		outer_divider = 0;
+	    	}else{
+	    		outer_divider++;
+	    	}
+
+	    	pwm = angle_pid_count_pwm(&angle_pid, gx,-angle_ref, current_angle, Ts_s);
 	    	motor_set_signed_pwm(&motor1, pwm);
 	    	motor_set_signed_pwm(&motor2, pwm);
 	    }
@@ -402,27 +412,37 @@ void StartSendLogsTask(void *argument)
 void StartLedMatrixTask(void *argument)
 {
   /* USER CODE BEGIN StartLedMatrixTask */
-  bool sixSeven = true;
-  uint8_t pattern6[8] = {
+  uint8_t scary_eye[8] = {
+	0b00011000,
+	0b00011000,
 	0b00111100,
-	0b01100110,
-	0b11000000,
-	0b11111100,
-	0b11000110,
-	0b11000110,
-	0b01100110,
-	0b00111100
+	0b00111100,
+	0b00111100,
+	0b00111100,
+	0b00011000,
+	0b00011000
   };
 
-  uint8_t pattern7[8] = {
-	0b11111110,
-	0b00000110,
-	0b00001100,
-	0b00011000,
-	0b00110000,
-	0b00110000,
-	0b00110000,
-	0b00110000
+  uint8_t deafult_eye[8] = {
+	0b00000000,
+	0b00111100,
+	0b01111110,
+	0b11111111,
+	0b11111111,
+	0b01111110,
+	0b00111100,
+	0b00000000
+  };
+
+  uint8_t dead_eye[8] = {
+	0b11000011,
+	0b11100111,
+	0b01111110,
+	0b00111100,
+	0b00111100,
+	0b01111110,
+	0b11100111,
+	0b11000011
   };
 
   LED_matrix_init(&ledMatrix1);
@@ -433,22 +453,22 @@ void StartLedMatrixTask(void *argument)
   {
 	LED_matrix_clear_buffer(&ledMatrix1);
 	LED_matrix_clear_buffer(&ledMatrix2);
-	if(sixSeven){
-
-	  LED_matrix_load_buffer(&ledMatrix1, pattern6);
-	  LED_matrix_load_buffer(&ledMatrix2, pattern7);
-	  sixSeven = false;
-	}
-	else{
-	  LED_matrix_load_buffer(&ledMatrix1, pattern7);
-	  LED_matrix_load_buffer(&ledMatrix2, pattern6);
-	  sixSeven = true;
+	if(current_angle > 45.0f || current_angle < -45.0f){
+		LED_matrix_load_buffer(&ledMatrix1, dead_eye);
+		LED_matrix_load_buffer(&ledMatrix2, dead_eye);
+	}else if(current_angle > 7.0f || current_angle < -7.0f){
+		LED_matrix_load_buffer(&ledMatrix1, scary_eye);
+		LED_matrix_load_buffer(&ledMatrix2, scary_eye);
+	}else{
+		LED_matrix_load_buffer(&ledMatrix1, deafult_eye);
+		LED_matrix_load_buffer(&ledMatrix2, deafult_eye);
 	}
 	LED_matrix_rotate_buffer(&ledMatrix1, ROTATE_CW);
 	LED_matrix_rotate_buffer(&ledMatrix2, ROTATE_CW);
 	LED_matrix_draw_buffer(&ledMatrix1);
 	LED_matrix_draw_buffer(&ledMatrix2);
-	osDelay(1000);
+
+	osDelay(200);
   }
   /* USER CODE END StartLedMatrixTask */
 }
