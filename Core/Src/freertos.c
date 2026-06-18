@@ -148,6 +148,7 @@ float angle_ref = 0.0f;
 float calib_ang = 0.0f;
 float robot_speed = 0.0f;
 uint8_t outer_divider_ref = 10;
+uint32_t regulation_time = 0;
 command_context_t command_context = {
 	.motor1 = &motor1,
 	.motor2 = &motor2,
@@ -307,6 +308,7 @@ void StartControlTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	uint32_t startTime = osKernelGetTickCount();
 	nextWake += Ts_ms;
 	mpu_get_accel(&ax, &ay, &az);
 	mpu_get_gyro(&gx, &gy, &gz);
@@ -342,8 +344,9 @@ void StartControlTask(void *argument)
     	motor_set_signed_pwm(&motor1, pwm);
     	motor_set_signed_pwm(&motor2, pwm);
 	}
+	regulation_time = osKernelGetTickCount() - startTime;
 
-    osDelayUntil(nextWake);
+  osDelayUntil(nextWake);
   }
   /* USER CODE END StartControlTask */
 }
@@ -363,6 +366,7 @@ void StartSendLogsTask(void *argument)
   osSemaphoreAcquire(UartInitSemaphoreHandle, osWaitForever);
   for(;;)
   {
+	my_uart_printf(&bluetooth, "regtim%d\n", regulation_time);
 	my_uart_printf(&bluetooth, "pwm%.2f\n", pwm);
 	my_uart_printf(&bluetooth, "velcur%.2f\n", robot_speed);
 	my_uart_printf(&bluetooth, "angcur%.2f\n", current_angle);
